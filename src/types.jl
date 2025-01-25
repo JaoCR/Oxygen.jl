@@ -18,7 +18,7 @@ export Server, History, HTTPTransaction, TaggedRoute, Nullable, Context,
 
 const Nullable{T} = Union{T, Nothing}
 
-# Represents the application context 
+# Represents the application context
 struct Context{T}
     payload::T
 end
@@ -63,8 +63,8 @@ struct ActiveCron
     job       :: RegisteredCron
 end
 
-struct TaggedRoute 
-    httpmethods :: Vector{String} 
+struct TaggedRoute
+    httpmethods::Vector{String}
     tags        :: Vector{String}
 end
 
@@ -87,7 +87,7 @@ const History = CircularDeque{HTTPTransaction}
 @kwdef struct Param{T}
     name::Symbol
     type::Type{T}
-    default::Union{T, Missing} = missing
+    default::Any = missing
     hasdefault::Bool = false
 end
 
@@ -110,14 +110,14 @@ function headers(req::LazyRequest) :: Nullable{Dict{String,String}}
     if isnothing(req.headers[])
         req.headers[] = Dict(String(k) => String(v) for (k,v) in HTTP.headers(req.request))
     end
-    return req.headers[] 
+    return req.headers[]
 end
 
 function pathparams(req::LazyRequest) :: Nullable{Dict{String,String}}
     if isnothing(req.pathparams[])
         req.pathparams[] = HTTP.getparams(req.request)
     end
-    return req.pathparams[] 
+    return req.pathparams[]
 end
 
 function queryvars(req::LazyRequest) :: Nullable{Dict{String,String}}
@@ -131,21 +131,21 @@ function jsonbody(req::LazyRequest) :: Nullable{JSON3.Object}
     if isnothing(req.jsonbody[])
         req.jsonbody[] = json(req.request)
     end
-    return req.jsonbody[] 
+    return req.jsonbody[]
 end
 
 function formbody(req::LazyRequest) :: Nullable{Dict{String,String}}
     if isnothing(req.formbody[])
         req.formbody[] = formdata(req.request)
     end
-    return req.formbody[] 
+    return req.formbody[]
 end
 
 function textbody(req::LazyRequest) :: Nullable{String}
     if isnothing(req.textbody[])
         req.textbody[] = text(req.request)
     end
-    return req.textbody[] 
+    return req.textbody[]
 end
 
 end
