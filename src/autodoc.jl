@@ -30,6 +30,25 @@ function mergeschema(schema::Dict, customschema::Dict)
     merge!(schema, updated_schema)
 end
 
+"Handles the union logic for schema building functions."
+function build_schema_handle_unions(f, T::Type)
+    types = T |> Base.uniontypes |> unique
+    nullable = (Nothing ∈ types || Missing ∈ types)
+    filter!(∉((Union{}, Any, Nothing, Missing)), types)
+    schema = if length(types) == 0
+        DictSA()
+    elseif length(types) == 1
+        f(types[1])
+    else
+        DictSA("oneOf" => map(f, types))
+    end
+    if nullable
+        schema["nullable"] = true
+    end
+    return schema
+end
+
+
 "OpenAPI equivalent name for a given simple type."
 type_id(T::Type)::Nullable{String} = type_id(stt.StructType(T)) # general case
 type_id(::Type{<:Integer})::String = "integer" # edge case of integers, different id
@@ -40,14 +59,18 @@ type_id(::stt.NumberType)::String = "number"
 type_id(::stt.BoolType)::String = "bool"
 type_id(_)::Nothing = nothing
 
+
 "OpenAPI type schema definition for a given simple type."
 function type_schema(T::Type)::Nullable{Dict}
-    type_string = type_id(T)
-    type_string === nothing && return nothing
-    type_def = DictSA("type" => type_string)
-    add_format!(T, type_def)
-    return type_def
+    return build_schema_handle_unions(T) do type
+        type_string = type_id(type)
+        type_string === nothing && return nothing
+        type_def = DictSA("type" => type_string)
+        add_format!(type, type_def)
+        return type_def
+    end
 end
+
 
 "OpenAPI format name for a given parameter (eg. DateTime(2022,1,1) => \"date-time\")"
 format_id(T::Type)::Nullable{String} = format_id(stt.StructType(T))
@@ -69,13 +92,8 @@ end
 
 "Returns openapi reference for a given type."
 function get_schema!(T::Type, schemas::Dict)::Dict
-    types = T |> Base.uniontypes |> unique |> filter(∉((Union{}, Any, Nothing, Missing)))
-    return if length(types) == 0
-        DictSA()
-    elseif length(types) == 1
-        get_schema!(stt.StructType(types[1]), types[1], schemas)
-    else
-        Dict("oneOf" => [get_schema!(sst.StructType(t), t, schemas) for t ∈ types])
+    return build_schema_handle_unions(T) do sub_type
+        get_schema!(stt.StructType(sub_type), sub_type, schemas)
     end
 end
 
