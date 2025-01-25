@@ -69,7 +69,14 @@ end
 
 "Returns openapi reference for a given type."
 function get_schema!(T::Type, schemas::Dict)::Dict
-    return get_schema!(stt.StructType(T), T, schemas)
+    types = T |> Base.uniontypes |> unique |> filter(∉((Union{}, Any, Nothing, Missing)))
+    return if length(types) == 0
+        DictSA()
+    elseif length(types) == 1
+        get_schema!(stt.StructType(types[1]), types[1], schemas)
+    else
+        Dict("oneOf" => [get_schema!(sst.StructType(t), t, schemas) for t ∈ types])
+    end
 end
 
 function get_schema!(::stt.InterfaceType, T::Type, _)::Dict
