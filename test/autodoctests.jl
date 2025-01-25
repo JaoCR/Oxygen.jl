@@ -8,7 +8,7 @@ struct Car
     name::String
 end
 
-struct Person 
+struct Person
     name::String
     car::Car
 end
@@ -25,7 +25,7 @@ end
 ctx = CONTEXT[]
 schemas = ctx.docs.schema["components"]["schemas"]
 
-@testset "schema gen tests" begin 
+@testset "schema gen tests" begin
 
     # ensure schemas are present for all types
     @test haskey(schemas, "Car")
@@ -35,20 +35,20 @@ schemas = ctx.docs.schema["components"]["schemas"]
     # ensure the generated Car schema aligns
     car = schemas["Car"]
     @test car["type"] == "object"
-    @test car["properties"]["name"]["required"] == true
+    @test "name" ∈ car["required"]
     @test car["properties"]["name"]["type"] == "string"
 
     # ensure the generated Person schema aligns
     person = schemas["Person"]
     @test person["type"] == "object"
-    @test person["properties"]["name"]["required"] == true
+    @test "name" ∈ person["required"]
     @test person["properties"]["name"]["type"] == "string"
     @test person["properties"]["car"]["\$ref"] == "#/components/schemas/Car"
 
     # ensure the generated Party schema aligns
     party = schemas["Party"]
     @test party["type"] == "object"
-    @test party["properties"]["guests"]["required"] == false
+    @test !haskey(party, "required") || "guests" ∉ party["required"]
     @test party["properties"]["guests"]["type"] == "array"
     @test party["properties"]["guests"]["items"]["\$ref"] == "#/components/schemas/Person"
     @test party["properties"]["guests"]["default"] == "[{\"name\":\"Alice\",\"car\":{\"name\":\"Toyota\"}},{\"name\":\"Bob\",\"car\":{\"name\":\"Honda\"}}]"

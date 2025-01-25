@@ -604,11 +604,21 @@ function register(ctx::ServerContext, httpmethod::String, route::Union{String,Fu
             bodyparams = func_details.bodyargs
 
             # Register the route schema with out autodocs module
-            registerschema(ctx.docs, route, httpmethod, pathparams, queryparams, headers, bodyparams, Base.return_types(func))
+            registerschema(
+                ctx.docs,
+                route,
+                httpmethod,
+                pathparams,
+                queryparams,
+                headers,
+                bodyparams,
+                Base.return_types(func),
+            )
 
-        catch error
-            @warn "Failed to generate openapi schema for route: $route"
-            @warn error
+        catch e
+            @error "Failed to generate openapi schema for route: $route" exception = (
+                e, catch_backtrace()
+            )
         end
     end
 
