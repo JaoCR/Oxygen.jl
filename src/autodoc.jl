@@ -186,9 +186,14 @@ function register_object_schema!(T::Type, schemas::Dict)
 end
 
 
-function createparam(p::Param{T}, paramtype::String)::Dict where {T}
+function createparam(p::Param{T}, paramtype::String)::Nullable{Dict} where {T}
 
     schema = type_schema(p.type)
+
+    if isnothing(schema)
+        @warn "failed to document parameter: $p"
+        return nothing
+    end
 
     # Add default value if it exists
     if p.hasdefault
@@ -219,10 +224,16 @@ function formatparam!(params::Vector{Any}, p::Param{T}, paramtype::String) where
         info = splitdef(type)
         sig_names = OrderedSet{Symbol}(p.name for p in info.sig)
         for name in sig_names
-            push!(params, createparam(info.sig_map[name], paramtype))
+            param_def = createparam(info.sig_map[name], paramtype)
+            if !isnothing(param_def)
+                push!(params, param_def)
+            end
         end
     else
-        push!(params, createparam(p, paramtype))
+        param_def = createparam(p, paramtype)
+        if !isnothing(param_def)
+            push!(params, param_def)
+        end
     end
 end
 
