@@ -83,7 +83,7 @@ format_id(::stt.NumberType)::String = "double"
 format_id(_)::Nothing = nothing
 
 "Adds format key to dict if a format string exists for the given type."
-function add_format!(T::Type, d::Dict)
+function add_format!(T::Type, d::AbstractDict)
     format = format_id(T)
     if format !== nothing
         d["format"] = format
@@ -91,26 +91,26 @@ function add_format!(T::Type, d::Dict)
 end
 
 "Returns openapi reference for a given type."
-function get_schema!(T::Type, schemas::Dict)::Dict
+function get_schema!(T::Type, schemas::AbstractDict)::DictSA
     return build_schema_handle_unions(T) do sub_type
         get_schema!(stt.StructType(sub_type), sub_type, schemas)
     end
 end
 
-function get_schema!(::stt.InterfaceType, T::Type, _)::Dict
+function get_schema!(::stt.InterfaceType, T::Type, _)::DictSA
     return type_schema(T)
 end
 
-function get_schema!(::stt.CustomStruct, T::Type, schemas::Dict)::Dict
+function get_schema!(::stt.CustomStruct, T::Type, schemas::AbstractDict)::DictSA
     return get_schema!(stt.lowertype(T), schemas)
 end
 
-function get_schema!(::stt.DataType, T::Type, schemas::Dict)::Dict
+function get_schema!(::stt.DataType, T::Type, schemas::AbstractDict)::DictSA
     register_object_schema!(T, schemas)
     return DictSA("\$ref" => "#/components/schemas/$(T|>nameof|>string)")
 end
 
-function get_schema!(::stt.ArrayType, T::Type, schemas::Dict)::Dict
+function get_schema!(::stt.ArrayType, T::Type, schemas::AbstractDict)::DictSA
     # [NOTE] ArrayType is subtype of Interface Type, and has precedence.
     # So this function handles the edge case for specifying array items.
 
@@ -132,15 +132,15 @@ function get_schema!(::stt.ArrayType, T::Type, schemas::Dict)::Dict
 end
 
 "Adds response content option to the content dict, updating schemas if needed."
-function add_response_content!(T::Type, schemas::Dict, content::Dict)
+function add_response_content!(T::Type, schemas::AbstractDict, content::AbstractDict)
     return add_response_content!(stt.StructType(T), T, schemas, content)
 end
 
 function add_response_content!(
     ::Union{stt.CustomStruct,stt.DataType,stt.ArrayType},
     T::Type,
-    schemas::Dict,
-    content::Dict,
+    schemas::AbstractDict,
+    content::AbstractDict,
 )
     if !haskey(content, "application/json")
         content["application/json"] = DictSA("oneOf" => Any[])
@@ -149,7 +149,7 @@ function add_response_content!(
     push!(content["application/json"]["oneOf"], schema)
 end
 
-function add_response_content!(_, T::Type, schemas::Dict, content::Dict)
+function add_response_content!(_, T::Type, schemas::AbstractDict, content::AbstractDict)
     if !haskey(content, "text/plain")
         content["text/plain"] = DictSA("oneOf" => Any[])
     end
@@ -159,7 +159,7 @@ end
 
 
 
-function register_object_schema!(T::Type, schemas::Dict)
+function register_object_schema!(T::Type, schemas::AbstractDict)
 
     typename = T |> nameof |> string
 
@@ -235,7 +235,7 @@ end
 """
 This function helps format the individual parameters for each route in the openapi schema
 """
-function formatparam!(params::Vector{Any}, p::Param{T}, paramtype::String) where T
+function formatparam!(params::Vector{Any}, p::Param{T}, paramtype::String) where {T}
     # Will need to flatten request extrators & append all properties to the schema
     if isextractor(p) && isreqparam(p)
         type = extracttype(p.type)
@@ -395,11 +395,11 @@ function registerschema(
         tags = []
     end
 
-    content = DictSA()
+    response_content = DictSA()
     returntypes = Iterators.flatmap(Base.uniontypes, returntypes) |>
                   unique |> filter(∉((Union{}, Any, Nothing, Missing)))
     for RT ∈ returntypes
-        add_response_content!(RT, schemas, content)
+        add_response_content!(RT, schemas, response_content)
     end
 
     # Build the route schema
@@ -410,7 +410,7 @@ function registerschema(
             "responses" => DictSA(
                 "200" => DictSA(
                     "description" => "200 response",
-                    "content" => content,
+                    "content" => response_content,
                 ),
                 "500" => DictSA("description" => "500 Server encountered a problem")
             )
@@ -458,7 +458,7 @@ function readstaticfile(filepath::String)::String
 end
 
 
-function redochtml(schemapath::String, docspath::String) :: HTTP.Response
+function redochtml(schemapath::String, docspath::String)::HTTP.Response
     redocjs = readstaticfile("$REDOC_VERSION/redoc.standalone.js")
 
     html("""
@@ -472,7 +472,7 @@ function redochtml(schemapath::String, docspath::String) :: HTTP.Response
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <link rel="icon" type="image/x-icon" href="$docspath/metrics/favicon.ico">
         </head>
-        
+
         <body>
             <redoc spec-url="$schemapath"></redoc>
             <script>$redocjs</script>
@@ -486,7 +486,7 @@ end
 """
 Return HTML page to render the autogenerated docs
 """
-function swaggerhtml(schemapath::String, docspath::String) :: HTTP.Response
+function swaggerhtml(schemapath::String, docspath::String)::HTTP.Response
 
     # load static content files
     swaggerjs = readstaticfile("$SWAGGER_VERSION/swagger-ui-bundle.js")
@@ -495,7 +495,7 @@ function swaggerhtml(schemapath::String, docspath::String) :: HTTP.Response
     html("""
         <!DOCTYPE html>
         <html lang="en">
-        
+
         <head>
             <title>Docs</title>
             <meta charset="utf-8" />
@@ -504,7 +504,7 @@ function swaggerhtml(schemapath::String, docspath::String) :: HTTP.Response
             <style>$swaggerstyles</style>
             <link rel="icon" type="image/x-icon" href="$docspath/metrics/favicon.ico">
         </head>
-        
+
         <body>
             <div id="swagger-ui"></div>
             <script>$swaggerjs</script>
@@ -517,7 +517,7 @@ function swaggerhtml(schemapath::String, docspath::String) :: HTTP.Response
                 };
             </script>
         </body>
-        
+
         </html>
     """)
 end
