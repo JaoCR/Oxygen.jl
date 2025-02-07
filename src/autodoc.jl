@@ -371,9 +371,9 @@ function registerschema(
     bodyparams::Vector,
     returntypes::Vector,
 )
-    ##### Append the parameter schema for the route #####
     params = []
 
+    ##### Append the parameter schema for the route #####
     for (param_list, location) in [(parameters, "path"), (queryparams, "query"), (headers, "header")]
         for p in param_list
             formatparam!(params, p, location)
@@ -383,8 +383,16 @@ function registerschema(
     ##### Set the schema for the body parameters #####
     content, schemas = formatcontent(bodyparams)
 
-    components = DictSA("components" => DictSA("schemas" => schemas))
+    ##### Document response content, updating schemas #####
+    response_content = DictSA()
+    returntypes = Iterators.flatmap(Base.uniontypes, returntypes) |>
+                  unique |> filter(∉((Union{}, Any, Nothing, Missing)))
+    for RT ∈ returntypes
+        add_response_content!(RT, schemas, response_content)
+    end
+
     if !isempty(schemas)
+        components = DictSA("components" => DictSA("schemas" => schemas))
         mergeschema(docs.schema, components)
     end
 
@@ -395,12 +403,6 @@ function registerschema(
         tags = []
     end
 
-    response_content = DictSA()
-    returntypes = Iterators.flatmap(Base.uniontypes, returntypes) |>
-                  unique |> filter(∉((Union{}, Any, Nothing, Missing)))
-    for RT ∈ returntypes
-        add_response_content!(RT, schemas, response_content)
-    end
 
     # Build the route schema
     route = DictSA(
